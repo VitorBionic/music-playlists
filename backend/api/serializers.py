@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from .models import Playlist, PlaylistTrack
 
 User = get_user_model()
 
@@ -36,3 +37,18 @@ class RegisterSerializer(serializers.ModelSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True, validators=[validate_password])
+
+
+class PlaylistTrackSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PlaylistTrack
+        fields = ['deezer_id', 'title', 'artist', 'duration', 'preview_url', 'cover_url']
+    
+
+class PlaylistSerializer(serializers.ModelSerializer):
+    tracks = PlaylistTrackSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Playlist
+        fields = ['id', 'title', 'description', 'likes', 'gender', 'created_at', 'tracks']
+        read_only_fields = ['id', 'tracks', 'likes']

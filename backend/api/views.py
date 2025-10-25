@@ -10,6 +10,9 @@ from rest_framework.views import APIView
 from .serializers import UserSerializer, RegisterSerializer, ChangePasswordSerializer
 from .permissions import IsSelfOrAdmin
 
+from .models import Playlist, PlaylistTrack
+from .serializers import PlaylistSerializer, PlaylistTrackSerializer
+
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def index(request):
@@ -22,9 +25,9 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     def get_permissions(self):
-        if self.action in ['list', 'update', 'partial_update', 'create']:
+        if self.action in ['list', 'create']:
             permission_classes = [IsAdminUser]
-        elif self.action in ['retrieve']:
+        elif self.action in ['retrieve', 'update', 'partial_update']:
             permission_classes = [IsAuthenticated, IsSelfOrAdmin]
         elif self.action == 'destroy':
             permission_classes = [IsAdminUser]
@@ -50,3 +53,41 @@ class UserViewSet(viewsets.ModelViewSet):
 class RegisterView(generics.CreateAPIView):
     permission_classes = [AllowAny]
     serializer_class = RegisterSerializer
+
+class PlaylistViewSet(viewsets.ModelViewSet):
+    serializer_class = PlaylistSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Playlist.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+    
+    @action(detail=True, methods=['post'])
+    def add_track(self, request, pk=None):
+        playlist = self.get_object()
+        serializer = PlaylistTrackSerializer(data=request.data)
+        if serializer.is_valid():
+            deezer_id = serializer.validated_data.get("deezer_id")
+
+            if playlist.tracks.filter(deezer_id=deezer_id).exists():
+                return Response(
+                    {"detail": "This track is already in the playlist."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            serializer.save(playlist=playlist)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['post'])
+    def remove_track(self, request, pk=None):
+        playlist = self.get_object()
+        track_id = request.data.get('track_id')
+        try:
+            track = PlaylistTrack.objects.get(deezer_id=track_id, playlist=playlist)
+            track.delete()
+            return Response({'detail': 'Track removed'}, status=status.HTTP_204_NO_CONTENT)
+        except PlaylistTrack.DoesNotExist:
+            return Response({'detail': 'Track not found'}, status=status.HTTP_404_NOT_FOUND)
