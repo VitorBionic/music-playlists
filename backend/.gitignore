@@ -1,3 +1,6 @@
+# Private and Public keys #
+config/keys/
+
 # Django #
 *.log
 *.pot
