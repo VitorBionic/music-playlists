@@ -15,8 +15,19 @@ from .serializers import PlaylistSerializer, PlaylistTrackSerializer
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def index(request):
-    return HttpResponse(f"Hello, {request.user.username}. You're at the polls index.")
+def search_playlists(request):
+    name = request.query_params.get('name', '')
+    genre = request.query_params.get('genre', '')
+
+    playlists = Playlist.objects.all()
+
+    if name:
+        playlists = playlists.filter(title__icontains=name)
+    if genre:
+        playlists = playlists.filter(gender__iexact=genre)
+
+    serializer = PlaylistSerializer(playlists, many=True)
+    return Response(serializer.data, status=status.HTTP_200_OK)
 
 User = get_user_model()
 
